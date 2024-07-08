@@ -1,0 +1,11 @@
+<launch>
+  <!-- Start the Gazebo simulation -->
+  <include file="$(find stewart)/launch/stewart.launch"/>
+
+  <!-- Launch the Stewart platform control node -->
+  <node name="stewart_control" pkg="stewart_control" type="stewart_control.py" output="screen"/>
+
+  <!-- Launch the command publisher node -->
+  <node name="stewart_command_publisher" pkg="stewart_control" type="stewart_command_publisher.py" output="screen"/>
+</launch>
+

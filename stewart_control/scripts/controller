@@ -1,0 +1,94 @@
+#!/usr/bin/env python
+
+import rospy
+from geometry_msgs.msg import Pose
+from gazebo_msgs.msg import ModelState
+from gazebo_msgs.srv import SetModelState, GetModelState
+from std_msgs.msg import Float64
+import numpy as np
+
+class PlatformController:
+    def __init__(self):
+        rospy.init_node('platform_controller', anonymous=True)
+        self.set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+        self.model_name = 'stewart'  # Adjusted model name
+
+        # Initialize publishers for each piston's position (assuming Float64 messages)
+        self.piston_positions = []
+        for i in range(1, 7):  # Assuming piston1_cylinder_link to piston6_cylinder_link
+            topic_name = f'/piston{i}_position'
+            self.piston_positions.append(rospy.Subscriber(topic_name, Float64, self.piston_position_callback))
+
+    def piston_position_callback(self, msg):
+        # Placeholder callback to receive piston positions
+        pass
+
+    def run(self):
+        rospy.loginfo("Controlling platform_link based on piston positions.")
+
+        running = True
+        while running and not rospy.is_shutdown():
+            # Calculate desired orientation based on piston positions
+            desired_orientation = self.calculate_desired_orientation()
+
+            # Construct new pose with calculated orientation
+            new_pose = self.get_current_pose()
+            new_pose.orientation.x = desired_orientation[0]
+            new_pose.orientation.y = desired_orientation[1]
+            new_pose.orientation.z = desired_orientation[2]
+            new_pose.orientation.w = desired_orientation[3]
+
+            # Publish updated pose to Gazebo
+            self.publish_pose(new_pose)
+
+            rospy.sleep(1.0)  # Control rate
+
+    def calculate_desired_orientation(self):
+        # Example: Calculate desired orientation based on piston positions
+        # Placeholder calculation, adjust as per your control strategy
+        avg_position = self.get_average_piston_position()
+        roll = avg_position * 0.1  # Example relationship between position and roll (adjust as needed)
+        pitch = avg_position * 0.05  # Example relationship between position and pitch (adjust as needed)
+        yaw = avg_position * 0.03  # Example relationship between position and yaw (adjust as needed)
+
+        # Return quaternion representing desired orientation
+        # For simplicity, assuming no change in orientation
+        desired_orientation = [0.0, 0.0, 0.0, 1.0]  # No change in orientation for simplicity
+        return desired_orientation
+
+    def get_average_piston_position(self):
+        # Example: Calculate average piston position
+        # Placeholder calculation, replace with actual logic
+        # For now, returning a random value
+        return np.random.uniform(0.0, 1.0)
+
+    def get_current_pose(self):
+        # Get current pose of the model from Gazebo
+        try:
+            get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
+            resp = get_state(self.model_name, '')  # Get full state without reference frame
+            return resp.pose
+        except rospy.ServiceException as e:
+            rospy.logerr(f"Service call failed: {e}")
+            return None
+
+    def publish_pose(self, pose):
+        # Create ModelState message with updated pose
+        state = ModelState()
+        state.model_name = self.model_name
+        state.pose = pose
+
+        # Call the set_model_state service to update the pose in Gazebo
+        try:
+            resp = self.set_state(state)
+            rospy.loginfo("Set model state success")
+        except rospy.ServiceException as e:
+            rospy.logerr(f"Service call failed: {e}")
+
+if __name__ == '__main__':
+    try:
+        controller = PlatformController()
+        controller.run()
+    except rospy.ROSInterruptException:
+        pass
+
